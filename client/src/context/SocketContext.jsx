@@ -22,10 +22,17 @@ export const SocketProvider = ({ children }) => {
       // Listen for connection status
       socketInstance.on('connect', () => {
         setIsConnected(true);
+        // Join the chat with user data
+        socketInstance.emit('user_join', user);
       });
 
       socketInstance.on('disconnect', () => {
         setIsConnected(false);
+      });
+      
+      // Handle authentication confirmation
+      socketInstance.on('user_authenticated', (authenticatedUser) => {
+        console.log('User authenticated:', authenticatedUser);
       });
 
       return () => {

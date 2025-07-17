@@ -6,62 +6,61 @@ const ChatContext = createContext();
 
 const chatReducer = (state, action) => {
   switch (action.type) {
-    case 'SET_ROOMS':
+    case 'SET_MESSAGES':
       return {
         ...state,
-        rooms: action.payload,
-      };
-    case 'SET_ACTIVE_ROOM':
-      return {
-        ...state,
-        activeRoom: action.payload,
-        messages: state.roomMessages[action.payload] || [],
+        messages: action.payload,
       };
     case 'ADD_MESSAGE':
-      const { roomId, message } = action.payload;
-      const updatedRoomMessages = {
-        ...state.roomMessages,
-        [roomId]: [...(state.roomMessages[roomId] || []), message],
-      };
-      
       return {
         ...state,
-        roomMessages: updatedRoomMessages,
-        messages: state.activeRoom === roomId ? updatedRoomMessages[roomId] : state.messages,
+        messages: [...state.messages, action.payload],
+      };
+    case 'SET_MESSAGE_HISTORY':
+      return {
+        ...state,
+        messages: action.payload,
+        loading: false,
       };
     case 'SET_USERS':
       return {
         ...state,
         users: action.payload,
       };
-    case 'UPDATE_USER_STATUS':
+    case 'USER_JOINED':
       return {
         ...state,
-        users: state.users.map(user =>
-          user.id === action.payload.userId
-            ? { ...user, status: action.payload.status }
-            : user
-        ),
+        notifications: [...state.notifications, {
+          id: Date.now(),
+          type: 'user_joined',
+          message: `${action.payload.username} joined the chat`,
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    case 'USER_LEFT':
+      return {
+        ...state,
+        notifications: [...state.notifications, {
+          id: Date.now(),
+          type: 'user_left',
+          message: `${action.payload.username} left the chat`,
+          timestamp: new Date().toISOString(),
+        }],
       };
     case 'SET_TYPING_USERS':
       return {
         ...state,
-        typingUsers: action.payload,
-      };
-    case 'ADD_TYPING_USER':
-      return {
-        ...state,
-        typingUsers: [...state.typingUsers.filter(u => u !== action.payload), action.payload],
-      };
-    case 'REMOVE_TYPING_USER':
-      return {
-        ...state,
-        typingUsers: state.typingUsers.filter(u => u !== action.payload),
+        typingUsers: action.payload.filter(user => user.username !== state.currentUser?.username),
       };
     case 'SET_LOADING':
       return {
         ...state,
         loading: action.payload,
+      };
+    case 'CLEAR_NOTIFICATIONS':
+      return {
+        ...state,
+        notifications: [],
       };
     default:
       return state;
@@ -69,16 +68,12 @@ const chatReducer = (state, action) => {
 };
 
 const initialState = {
-  rooms: [
-    { id: 'general', name: 'General', description: 'General chat room' },
-    { id: 'random', name: 'Random', description: 'Random discussions' },
-  ],
-  activeRoom: 'general',
   messages: [],
-  roomMessages: {},
   users: [],
   typingUsers: [],
-  loading: false,
+  notifications: [],
+  currentUser: null,
+  loading: true,
 };
 
 export const ChatProvider = ({ children }) => {
@@ -88,108 +83,84 @@ export const ChatProvider = ({ children }) => {
 
   useEffect(() => {
     if (!socket || !isConnected) return;
+    
+    dispatch({ type: 'SET_LOADING', payload: true });
 
     // Socket event listeners
-    socket.on('message:new', (message) => {
-      dispatch({
-        type: 'ADD_MESSAGE',
-        payload: { roomId: message.roomId, message },
-      });
+    socket.on('message_history', (messages) => {
+      dispatch({ type: 'SET_MESSAGE_HISTORY', payload: messages });
     });
 
-    socket.on('user:typing', ({ userId, username, roomId }) => {
-      if (userId !== user?.id && roomId === state.activeRoom) {
-        dispatch({ type: 'ADD_TYPING_USER', payload: username });
-      }
+    socket.on('receive_message', (message) => {
+      dispatch({ type: 'ADD_MESSAGE', payload: message });
     });
 
-    socket.on('user:stoppedTyping', ({ userId, username, roomId }) => {
-      if (userId !== user?.id && roomId === state.activeRoom) {
-        dispatch({ type: 'REMOVE_TYPING_USER', payload: username });
-      }
-    });
-
-    socket.on('room:users', (users) => {
+    socket.on('user_list', (users) => {
       dispatch({ type: 'SET_USERS', payload: users });
     });
 
-    socket.on('user:statusChanged', ({ userId, status }) => {
-      dispatch({ type: 'UPDATE_USER_STATUS', payload: { userId, status } });
+    socket.on('user_joined', (userData) => {
+      dispatch({ type: 'USER_JOINED', payload: userData });
     });
 
-    // Join default room
-    socket.emit('room:join', { roomId: state.activeRoom });
+    socket.on('user_left', (userData) => {
+      dispatch({ type: 'USER_LEFT', payload: userData });
+    });
 
+    socket.on('typing_users', (typingUsers) => {
+      dispatch({ type: 'SET_TYPING_USERS', payload: typingUsers });
+    });
+
+    socket.on('user_authenticated', (authenticatedUser) => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    });
+
+    // Cleanup function
     return () => {
-      socket.off('message:new');
-      socket.off('user:typing');
-      socket.off('user:stoppedTyping');
-      socket.off('room:users');
-      socket.off('user:statusChanged');
+      socket.off('message_history');
+      socket.off('receive_message');
+      socket.off('user_list');
+      socket.off('user_joined');
+      socket.off('user_left');
+      socket.off('typing_users');
+      socket.off('user_authenticated');
     };
-  }, [socket, isConnected, user, state.activeRoom]);
+  }, [socket, isConnected]);
 
   const sendMessage = (content) => {
     if (!socket || !content.trim()) return;
 
-    const message = {
-      id: Date.now().toString(),
+    const messageData = {
       content: content.trim(),
-      userId: user.id,
-      username: user.username,
-      roomId: state.activeRoom,
       timestamp: new Date().toISOString(),
     };
 
-    // Optimistically add message
-    dispatch({
-      type: 'ADD_MESSAGE',
-      payload: { roomId: state.activeRoom, message },
-    });
-
     // Emit to server
-    socket.emit('message:send', message);
-  };
-
-  const joinRoom = (roomId) => {
-    if (!socket || roomId === state.activeRoom) return;
-
-    // Leave current room
-    socket.emit('room:leave', { roomId: state.activeRoom });
-    
-    // Join new room
-    socket.emit('room:join', { roomId });
-    
-    // Update state
-    dispatch({ type: 'SET_ACTIVE_ROOM', payload: roomId });
+    socket.emit('send_message', messageData);
   };
 
   const startTyping = () => {
     if (socket) {
-      socket.emit('user:typing', {
-        roomId: state.activeRoom,
-        userId: user.id,
-        username: user.username,
-      });
+      socket.emit('typing', true);
     }
   };
 
   const stopTyping = () => {
     if (socket) {
-      socket.emit('user:stoppedTyping', {
-        roomId: state.activeRoom,
-        userId: user.id,
-        username: user.username,
-      });
+      socket.emit('typing', false);
     }
+  };
+
+  const clearNotifications = () => {
+    dispatch({ type: 'CLEAR_NOTIFICATIONS' });
   };
 
   const value = {
     ...state,
     sendMessage,
-    joinRoom,
     startTyping,
     stopTyping,
+    clearNotifications,
   };
 
   return (

@@ -5,18 +5,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
-import { usePresence } from '../hooks/usePresence';
 import RoomItem from './RoomItem';
 import UserItem from './UserItem';
 import { cn } from '@/lib/utils';
 
 const Sidebar = ({ className }) => {
   const { user, logout } = useAuth();
-  const { rooms, activeRoom, joinRoom, users } = useChat();
-  const { onlineUsers } = usePresence();
+  const { users = [], messages = [] } = useChat();
+  
+  // Mock rooms data for now - you can implement room functionality later
+  const rooms = [
+    { id: 'general', name: 'General', description: 'General chat room' },
+    { id: 'random', name: 'Random', description: 'Random discussions' }
+  ];
+  const activeRoom = 'general';
 
   const handleLogout = () => {
     logout();
+  };
+
+  const joinRoom = (roomId) => {
+    console.log('Joining room:', roomId);
+    // Room joining functionality can be implemented later
   };
 
   return (
@@ -40,14 +50,16 @@ const Sidebar = ({ className }) => {
           </div>
           
           <div className="space-y-1">
-            {rooms.map((room) => (
+            {rooms?.map((room) => (
               <RoomItem
                 key={room.id}
                 room={room}
                 isActive={activeRoom === room.id}
                 onClick={() => joinRoom(room.id)}
               />
-            ))}
+            )) || (
+              <div className="text-sm text-muted-foreground">No rooms available</div>
+            )}
           </div>
         </div>
 
@@ -57,29 +69,20 @@ const Sidebar = ({ className }) => {
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Online ({onlineUsers.length})
+              Online ({users?.length || 0})
             </h2>
           </div>
           
           <div className="space-y-1">
-            {onlineUsers.map((user) => (
+            {users?.map((chatUser) => (
               <UserItem
-                key={user.id}
-                user={user}
+                key={chatUser.id}
+                user={chatUser}
                 isOnline={true}
               />
-            ))}
-            
-            {/* Show offline users from room */}
-            {users
-              .filter(user => !onlineUsers.some(ou => ou.id === user.id))
-              .map((user) => (
-                <UserItem
-                  key={user.id}
-                  user={user}
-                  isOnline={false}
-                />
-              ))}
+            )) || (
+              <div className="text-sm text-muted-foreground">No users online</div>
+            )}
           </div>
         </div>
       </ScrollArea>

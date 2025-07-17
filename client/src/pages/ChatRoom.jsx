@@ -15,7 +15,7 @@ const ChatRoom = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef(null);
   const { user, isAuthenticated } = useAuth();
-  const { messages, sendMessage, typingUsers } = useChat();
+  const { messages, typingUsers, loading } = useChat();
   const { isConnected } = useSocket();
   const navigate = useNavigate();
 
@@ -31,7 +31,7 @@ const ChatRoom = () => {
   }, [messages, typingUsers]);
 
   const handleSendMessage = (content) => {
-    sendMessage(content);
+    // Message sending is now handled directly in MessageInput component
   };
 
   const toggleSidebar = () => {
@@ -66,26 +66,31 @@ const ChatRoom = () => {
 
         {/* Messages Area */}
         <div className="flex-1 flex flex-col min-h-0">
-          <ScrollArea className="flex-1 px-4">
-            <div className="space-y-4 py-4">
-              {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-1">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
                   <div className="text-center">
-                    <div className="text-4xl mb-2">💬</div>
-                    <p className="text-lg font-medium">No messages yet</p>
-                    <p className="text-sm">Start the conversation!</p>
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Loading messages...</p>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <p className="text-lg font-medium text-muted-foreground">Welcome to the chat!</p>
+                    <p className="text-sm text-muted-foreground">Start a conversation by sending a message.</p>
                   </div>
                 </div>
               ) : (
                 messages.map((message, index) => {
                   const previousMessage = messages[index - 1];
-                  const showAvatar = !previousMessage || previousMessage.userId !== message.userId;
+                  const showAvatar = !previousMessage || previousMessage.senderId !== message.senderId;
                   
                   return (
                     <ChatMessage
                       key={message.id}
                       message={message}
-                      currentUserId={user?.id}
                       showAvatar={showAvatar}
                     />
                   );
@@ -93,7 +98,7 @@ const ChatRoom = () => {
               )}
               
               {/* Typing Indicator */}
-              <TypingIndicator users={typingUsers} />
+              <TypingIndicator users={typingUsers.map(u => u.username)} />
               
               {/* Scroll anchor */}
               <div ref={messagesEndRef} />
@@ -102,7 +107,6 @@ const ChatRoom = () => {
 
           {/* Message Input */}
           <MessageInput
-            onSendMessage={handleSendMessage}
             disabled={!isConnected}
           />
         </div>

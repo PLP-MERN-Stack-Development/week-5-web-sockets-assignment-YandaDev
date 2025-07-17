@@ -15,7 +15,7 @@ const ChatRoom = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef(null);
   const { user, isAuthenticated } = useAuth();
-  const { messages, typingUsers, loading } = useChat();
+  const { messages, typingUsers, loading, activeRoom, markMessageAsRead } = useChat();
   const { isConnected } = useSocket();
   const navigate = useNavigate();
 
@@ -28,7 +28,23 @@ const ChatRoom = () => {
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typingUsers]);
+    
+    // Mark non-own messages as read when they come into view
+    if (messages.length > 0 && user) {
+      const unreadMessages = messages.filter(
+        msg => msg.senderId !== user.id && msg.sender !== user.username
+      );
+      
+      if (unreadMessages.length > 0) {
+        // Mark messages as read after a short delay
+        setTimeout(() => {
+          unreadMessages.forEach(msg => {
+            markMessageAsRead(msg.id, activeRoom);
+          });
+        }, 1000);
+      }
+    }
+  }, [messages, typingUsers, user, activeRoom, markMessageAsRead]);
 
   const handleSendMessage = (content) => {
     // Message sending is now handled directly in MessageInput component

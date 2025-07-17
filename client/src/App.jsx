@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
 import { ChatProvider } from "./context/ChatContext";
+import { PrivateMessageProvider } from "./context/PrivateMessageContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -19,15 +20,16 @@ const App = () => (
     <AuthProvider>
       <SocketProvider>
         <ChatProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter
-              future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true
-              }}
-            >
+          <PrivateMessageProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter
+                future={{
+                  v7_startTransition: true,
+                  v7_relativeSplatPath: true
+                }}
+              >
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
@@ -37,9 +39,10 @@ const App = () => (
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
-        </ChatProvider>
-      </SocketProvider>
-    </AuthProvider>
+        </PrivateMessageProvider>
+      </ChatProvider>
+    </SocketProvider>
+  </AuthProvider>
   </QueryClientProvider>
 );
 

@@ -1,14 +1,18 @@
 import React from 'react';
+import { MessageCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-const UserItem = ({ user, isOnline, onClick }) => {
+const UserItem = ({ user, isOnline, onClick, onPrivateMessage, currentUserId }) => {
+  const isCurrentUser = user.id === currentUserId;
+
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors',
-        'hover:bg-chat-sidebar-hover',
-        onClick && 'hover:bg-accent'
+        'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+        'hover:bg-chat-sidebar-hover group',
+        onClick && 'cursor-pointer hover:bg-accent'
       )}
       onClick={onClick}
     >
@@ -29,12 +33,27 @@ const UserItem = ({ user, isOnline, onClick }) => {
       
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">
-          {user.username}
+          {user.username} {isCurrentUser && '(You)'}
         </div>
         <div className="text-xs text-muted-foreground">
           {isOnline ? 'Online' : 'Offline'}
         </div>
       </div>
+
+      {!isCurrentUser && onPrivateMessage && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrivateMessage(user);
+          }}
+          title={`Send private message to ${user.username}`}
+        >
+          <MessageCircle className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 };

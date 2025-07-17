@@ -1,16 +1,18 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Send, Smile } from 'lucide-react';
+import { Send, Smile, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useChat } from '../context/ChatContext';
 import { cn } from '@/lib/utils';
+import FileUpload from './FileUpload';
 
 const MessageInput = ({ disabled = false }) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  const { sendMessage, startTyping, stopTyping } = useChat();
+  const { sendMessage, startTyping, stopTyping, currentRoom } = useChat();
 
   const handleTypingStart = useCallback(() => {
     if (!isTyping) {
@@ -84,6 +86,17 @@ const MessageInput = ({ disabled = false }) => {
   return (
     <div className="border-t bg-background p-4">
       <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowFileUpload(true)}
+          disabled={disabled}
+          className="h-10 w-10 p-0 rounded-xl"
+        >
+          <Paperclip className="h-4 w-4" />
+        </Button>
+        
         <div className="flex-1 relative">
           <Textarea
             ref={textareaRef}
@@ -119,6 +132,13 @@ const MessageInput = ({ disabled = false }) => {
           <Send className="h-4 w-4" />
         </Button>
       </form>
+      
+      {showFileUpload && (
+        <FileUpload
+          onClose={() => setShowFileUpload(false)}
+          roomId={currentRoom?.id}
+        />
+      )}
     </div>
   );
 };

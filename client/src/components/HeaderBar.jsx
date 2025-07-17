@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button';
 import { useChat } from '../context/ChatContext';
 
 const HeaderBar = ({ onToggleSidebar, showSidebarToggle = false }) => {
-  const { users = [] } = useChat();
+  const { users = [], currentRoomData, activeRoom } = useChat();
   
-  // Mock room data for now
-  const currentRoom = { name: 'General', description: 'Welcome to the general chat room' };
+  const currentRoom = currentRoomData || { name: 'General', description: 'Welcome to the general chat room' };
   const roomUserCount = users.length;
   const onlineCount = users.length;
 

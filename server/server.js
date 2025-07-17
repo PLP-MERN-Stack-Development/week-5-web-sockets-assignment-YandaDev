@@ -35,46 +35,91 @@ const typingUsers = {};
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Handle user joining
-  socket.on('user_join', (username) => {
-    users[socket.id] = { username, id: socket.id };
+  // Handle user authentication and joining
+  socket.on('user_join', (userData) => {
+    const user = {
+      id: socket.id,
+      username: userData.username || userData,
+      email: userData.email || null,
+      avatar: userData.avatar || null,
+      status: 'online',
+      joinedAt: new Date().toISOString(),
+    };
+    
+    users[socket.id] = user;
+    
+    // Send welcome message to user
+    socket.emit('user_authenticated', user);
+    
+    // Send existing messages to newly joined user
+    socket.emit('message_history', messages);
+    
+    // Notify all users about the new user
     io.emit('user_list', Object.values(users));
-    io.emit('user_joined', { username, id: socket.id });
-    console.log(`${username} joined the chat`);
+    io.emit('user_joined', { username: user.username, id: socket.id });
+    
+    console.log(`${user.username} joined the chat`);
   });
 
   // Handle chat messages
   socket.on('send_message', (messageData) => {
+    const user = users[socket.id];
+    if (!user) {
+      socket.emit('error', { message: 'User not authenticated' });
+      return;
+    }
+    
     const message = {
-      ...messageData,
-      id: Date.now(),
-      sender: users[socket.id]?.username || 'Anonymous',
+      id: `msg_${Date.now()}_${socket.id}`,
+      content: messageData.content || messageData.message || messageData,
+      sender: user.username,
       senderId: socket.id,
+      senderEmail: user.email,
+      senderAvatar: user.avatar,
       timestamp: new Date().toISOString(),
+      type: 'text',
+      isEdited: false,
     };
     
     messages.push(message);
     
-    // Limit stored messages to prevent memory issues
+    // Limit stored messages to prevent memory issues (keep last 100)
     if (messages.length > 100) {
       messages.shift();
     }
     
+    // Broadcast message to all connected users
     io.emit('receive_message', message);
+    
+    console.log(`Message from ${user.username}: ${message.content}`);
   });
 
   // Handle typing indicator
   socket.on('typing', (isTyping) => {
-    if (users[socket.id]) {
-      const username = users[socket.id].username;
-      
-      if (isTyping) {
-        typingUsers[socket.id] = username;
-      } else {
-        delete typingUsers[socket.id];
-      }
-      
-      io.emit('typing_users', Object.values(typingUsers));
+    const user = users[socket.id];
+    if (!user) return;
+    
+    if (isTyping) {
+      typingUsers[socket.id] = {
+        username: user.username,
+        id: socket.id,
+        startedTyping: new Date().toISOString(),
+      };
+    } else {
+      delete typingUsers[socket.id];
+    }
+    
+    // Send typing status to all other users (not the sender)
+    socket.broadcast.emit('typing_users', Object.values(typingUsers));
+  });
+  
+  // Handle user status updates (online/away/busy)
+  socket.on('update_status', (status) => {
+    const user = users[socket.id];
+    if (user) {
+      user.status = status;
+      user.lastSeen = new Date().toISOString();
+      io.emit('user_list', Object.values(users));
     }
   });
 
@@ -95,15 +140,23 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    if (users[socket.id]) {
-      const { username } = users[socket.id];
-      io.emit('user_left', { username, id: socket.id });
-      console.log(`${username} left the chat`);
+    const user = users[socket.id];
+    if (user) {
+      console.log(`${user.username} left the chat`);
+      
+      // Notify other users
+      socket.broadcast.emit('user_left', { 
+        username: user.username, 
+        id: socket.id,
+        leftAt: new Date().toISOString()
+      });
     }
     
+    // Clean up user data
     delete users[socket.id];
     delete typingUsers[socket.id];
     
+    // Update user lists for remaining users
     io.emit('user_list', Object.values(users));
     io.emit('typing_users', Object.values(typingUsers));
   });

@@ -2,15 +2,14 @@ import React from 'react';
 import { Hash, Users, Phone, Video, Info, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChat } from '../context/ChatContext';
-import { usePresence } from '../hooks/usePresence';
 
 const HeaderBar = ({ onToggleSidebar, showSidebarToggle = false }) => {
-  const { rooms, activeRoom, users } = useChat();
-  const { onlineUsers } = usePresence();
+  const { users = [] } = useChat();
   
-  const currentRoom = rooms.find(room => room.id === activeRoom);
+  // Mock room data for now
+  const currentRoom = { name: 'General', description: 'Welcome to the general chat room' };
   const roomUserCount = users.length;
-  const onlineCount = onlineUsers.length;
+  const onlineCount = users.length;
 
   return (
     <div className="h-16 border-b bg-background px-4 flex items-center justify-between">

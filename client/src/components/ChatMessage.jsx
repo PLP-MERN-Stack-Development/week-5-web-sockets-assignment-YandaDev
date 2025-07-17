@@ -1,11 +1,24 @@
 import React from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../context/AuthContext';
 
-const ChatMessage = ({ message, currentUserId, showAvatar = true }) => {
-  const isOwn = message.userId === currentUserId;
+const ChatMessage = ({ message, showAvatar = true }) => {
+  const { user } = useAuth();
+  const isOwn = message.senderId === user?.id || message.sender === user?.username;
   const timestamp = new Date(message.timestamp);
+
+  const formatTimestamp = (date) => {
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return formatDistanceToNow(date, { addSuffix: true });
+    } else {
+      return format(date, 'MMM d, yyyy HH:mm');
+    }
+  };
 
   return (
     <div
@@ -16,9 +29,9 @@ const ChatMessage = ({ message, currentUserId, showAvatar = true }) => {
     >
       {showAvatar && !isOwn && (
         <Avatar className="w-8 h-8 mt-1">
-          <AvatarImage src={message.avatar} />
+          <AvatarImage src={message.senderAvatar} />
           <AvatarFallback className="text-xs">
-            {message.username?.[0]?.toUpperCase() || '?'}
+            {message.sender?.[0]?.toUpperCase() || '?'}
           </AvatarFallback>
         </Avatar>
       )}
@@ -26,7 +39,7 @@ const ChatMessage = ({ message, currentUserId, showAvatar = true }) => {
       <div className={cn('flex flex-col', isOwn ? 'items-end' : 'items-start')}>
         {!isOwn && (
           <div className="text-sm font-medium text-muted-foreground mb-1">
-            {message.username}
+            {message.sender}
           </div>
         )}
         
@@ -42,7 +55,7 @@ const ChatMessage = ({ message, currentUserId, showAvatar = true }) => {
         </div>
         
         <div className="text-xs text-muted-foreground mt-1 px-2">
-          {formatDistanceToNow(timestamp, { addSuffix: true })}
+          {formatTimestamp(timestamp)}
         </div>
       </div>
     </div>

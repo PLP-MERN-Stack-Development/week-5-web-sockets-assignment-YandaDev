@@ -1,22 +1,50 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Send, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useTyping } from '../hooks/useTyping';
+import { useChat } from '../context/ChatContext';
 import { cn } from '@/lib/utils';
 
-const MessageInput = ({ onSendMessage, disabled = false }) => {
+const MessageInput = ({ disabled = false }) => {
   const [message, setMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const textareaRef = useRef(null);
-  const { handleTyping, handleStopTyping } = useTyping();
+  const typingTimeoutRef = useRef(null);
+  const { sendMessage, startTyping, stopTyping } = useChat();
+
+  const handleTypingStart = useCallback(() => {
+    if (!isTyping) {
+      setIsTyping(true);
+      startTyping();
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      stopTyping();
+    }, 3000);
+  }, [isTyping, startTyping, stopTyping]);
+
+  const handleTypingStop = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    setIsTyping(false);
+    stopTyping();
+  }, [stopTyping]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!message.trim() || disabled) return;
 
-    onSendMessage(message);
+    sendMessage(message);
     setMessage('');
-    handleStopTyping();
+    handleTypingStop();
     
     // Reset textarea height
     if (textareaRef.current) {
@@ -29,7 +57,7 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
       e.preventDefault();
       handleSubmit(e);
     } else if (message.trim()) {
-      handleTyping();
+      handleTypingStart();
     }
   };
 
@@ -43,9 +71,9 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
     }
     
     if (e.target.value.trim()) {
-      handleTyping();
+      handleTypingStart();
     } else {
-      handleStopTyping();
+      handleTypingStop();
     }
   };
 
